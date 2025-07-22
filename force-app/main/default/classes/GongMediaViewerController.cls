@@ -8,7 +8,9 @@ public with sharing class GongMediaViewerController {
 
     public GongMediaViewerController() {
         String recordId = ApexPages.currentPage().getParameters().get('id');
+        System.debug('recordId: ' + recordId);
         if (String.isBlank(recordId)) {
+            System.debug('recordId is null');
             addError('No record ID provided');
             return;
         }
@@ -22,27 +24,33 @@ public with sharing class GongMediaViewerController {
             ];
 
             if (gongCall == null || String.isBlank(gongCall.Gong__Call_ID__c)) {
+                System.debug('Gong__Gong_Call__c is null');
                 addError('Gong Call record not found or missing Call ID');
                 return;
             }
 
             String callId = gongCall.Gong__Call_ID__c;
-            
             fileKey = 'video/' + callId + '.mp4';
+            System.debug('fileKey : ' + fileKey);
+            videoUrl = null;
             TransactionResponse videoResponse = getPresignedUrl(fileKey);
             
             if (videoResponse.success) {
                 Map<String, Object> responseMap = (Map<String, Object>)JSON.deserializeUntyped(videoResponse.responseBody);
-                videoUrl = (String)responseMap.get('presignedUrl');
+                if(responseMap.containsKey('url')){
+                    videoUrl = (String)responseMap.get('url');
+                }
             }
             
-            if (String.isBlank(videoUrl)) {
+            if (!videoResponse.success) {
                 fileKey = 'audio/' + callId + '.mp3';
                 TransactionResponse audioResponse = getPresignedUrl(fileKey);
                 
                 if (audioResponse.success) {
                     Map<String, Object> responseMap = (Map<String, Object>)JSON.deserializeUntyped(audioResponse.responseBody);
-                    videoUrl = (String)responseMap.get('presignedUrl');
+                    if(responseMap.containsKey('url')){
+                    videoUrl = (String)responseMap.get('url');
+                }
                 }
             }
             if (String.isBlank(videoUrl)) {
@@ -82,7 +90,6 @@ public with sharing class GongMediaViewerController {
                 
                 HttpResponse res = http.send(req);
                 
-                // Populate response object
                 response.statusCode = res.getStatusCode();
                 response.responseBody = res.getBody();
                 
